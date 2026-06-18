@@ -248,6 +248,19 @@
             </intent-filter>
         </receiver>
 
+        <!-- UnifiedPush: woken by a distributor to (re-)REGISTER for incoming calls from
+             SIP servers without native push. Must be exported so the distributor can reach it. -->
+        <receiver android:name=".core.UnifiedPushReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.MESSAGE"/>
+                <action android:name="org.unifiedpush.android.connector.NEW_ENDPOINT"/>
+                <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED"/>
+                <action android:name="org.unifiedpush.android.connector.UNREGISTERED"/>
+                <action android:name="org.unifiedpush.android.connector.TEMP_UNAVAILABLE"/>
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".notifications.NotificationBroadcastReceiver"
             android:enabled="true"

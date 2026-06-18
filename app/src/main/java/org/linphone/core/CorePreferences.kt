@@ -364,6 +364,24 @@ class CorePreferences
             config.setStringList("app", "push_notification_domains", value)
         }
 
+    // When enabled, the app registers a UnifiedPush endpoint and is woken on push instead of
+    // relying on the keep-alive service, for third-party SIP servers without native push.
+    @get:AnyThread @set:WorkerThread
+    var useUnifiedPush: Boolean
+        get() = config.getBool("app", "use_unified_push", false)
+        set(value) {
+            config.setBool("app", "use_unified_push", value)
+        }
+
+    // Last UnifiedPush endpoint URL advertised by the distributor; give this to the SIP
+    // server (or proxy) so it can POST to it to wake the app for an incoming call.
+    @get:AnyThread @set:AnyThread
+    var unifiedPushEndpoint: String
+        get() = config.getString("app", "unified_push_endpoint", "").orEmpty()
+        set(value) {
+            config.setString("app", "unified_push_endpoint", value)
+        }
+
     @get:AnyThread
     val defaultDomain: String
         get() = config.getString("app", "default_domain", "sip.linphone.org")!!

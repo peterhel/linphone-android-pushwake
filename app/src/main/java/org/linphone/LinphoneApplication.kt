@@ -45,6 +45,7 @@ import org.linphone.core.Factory
 import org.linphone.core.LogCollectionState
 import org.linphone.core.LogLevel
 import org.linphone.core.ManagedConfigurationReceiver
+import org.linphone.core.UnifiedPushReceiver
 import org.linphone.core.VFS
 import org.linphone.core.tools.Log
 
@@ -99,6 +100,11 @@ class LinphoneApplication : Application(), SingletonImageLoader.Factory {
 
         coreContext = CoreContext(context)
         coreContext.start()
+
+        if (corePreferences.useUnifiedPush) {
+            Log.i("$TAG UnifiedPush is enabled, registering for push")
+            UnifiedPushReceiver.register(context)
+        }
 
         ContextCompat.registerReceiver(
             this,

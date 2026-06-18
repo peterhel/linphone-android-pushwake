@@ -272,6 +272,11 @@ dependencies {
 
     implementation(libs.linphone)
 
+    // https://github.com/UnifiedPush/android-connector Apache v2.0
+    // Lets the app be woken by UnifiedPush (a Google-free push) to receive incoming calls
+    // from SIP servers that can't send native push, as an alternative to the keep-alive service.
+    implementation(libs.unifiedpush.connector)
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
 }
