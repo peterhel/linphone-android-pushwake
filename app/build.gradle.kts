@@ -275,7 +275,16 @@ dependencies {
     // https://github.com/UnifiedPush/android-connector Apache v2.0
     // Lets the app be woken by UnifiedPush (a Google-free push) to receive incoming calls
     // from SIP servers that can't send native push, as an alternative to the keep-alive service.
-    implementation(libs.unifiedpush.connector)
+    implementation(libs.unifiedpush.connector) {
+        // The connector depends on the JVM build of Tink (com.google.crypto.tink:tink), which
+        // duplicates classes with the Android build (tink-android) the app already uses via
+        // androidx.security:security-crypto, and drags in the full protobuf-java (colliding with
+        // the app's protobuf-javalite). Drop the JVM Tink; use tink-android (added below).
+        exclude(group = "com.google.crypto.tink", module = "tink")
+    }
+    // Align tink-android to the version the UnifiedPush connector targets (upgrades the 1.8.0
+    // pulled transitively by security-crypto). One Tink, one protobuf, no duplicate classes.
+    implementation("com.google.crypto.tink:tink-android:1.21.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
