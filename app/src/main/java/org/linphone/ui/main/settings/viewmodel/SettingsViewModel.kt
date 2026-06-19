@@ -39,6 +39,7 @@ import org.linphone.core.Factory
 import org.linphone.core.FriendList
 import org.linphone.core.MediaEncryption
 import org.linphone.core.Tunnel
+import org.linphone.core.UnifiedPushReceiver
 import org.linphone.core.VFS
 import org.linphone.core.tools.Log
 import org.linphone.ui.GenericViewModel
@@ -264,6 +265,8 @@ class SettingsViewModel
     val showDeveloperSettings = MutableLiveData<Boolean>()
 
     val logcat = MutableLiveData<Boolean>()
+
+    val useUnifiedPush = MutableLiveData<Boolean>()
     val fileSharingServerUrl = MutableLiveData<String>()
     val logsSharingServerUrl = MutableLiveData<String>()
     val createEndToEndEncryptedConferences = MutableLiveData<Boolean>()
@@ -403,6 +406,7 @@ class SettingsViewModel
             setupCodecs()
 
             logcat.postValue(corePreferences.printLogsInLogcat)
+            useUnifiedPush.postValue(corePreferences.useUnifiedPush)
             fileSharingServerUrl.postValue(core.fileTransferServer)
             logsSharingServerUrl.postValue(core.logCollectionUploadServerUrl)
             createEndToEndEncryptedConferences.postValue(corePreferences.createEndToEndEncryptedMeetingsAndGroupCalls)
@@ -1242,6 +1246,20 @@ class SettingsViewModel
             coreContext.updateLogcatEnabledSetting(newValue)
             Factory.instance().enableLogcatLogs(newValue)
             logcat.postValue(newValue)
+        }
+    }
+
+    @UiThread
+    fun toggleUnifiedPush() {
+        val newValue = useUnifiedPush.value == false
+        coreContext.postOnCoreThread {
+            corePreferences.useUnifiedPush = newValue
+            useUnifiedPush.postValue(newValue)
+        }
+        if (newValue) {
+            UnifiedPushReceiver.register(coreContext.context)
+        } else {
+            UnifiedPushReceiver.unregister(coreContext.context)
         }
     }
 
