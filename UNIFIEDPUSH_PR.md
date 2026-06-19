@@ -22,8 +22,8 @@ doesn't have to stay alive.
 REGISTER      → Contact: <sip:..;pn-provider=unifiedpush;pn-prid=<url-encoded endpoint>>   (the app advertises its topic, RFC 8599)
 incoming call → server reads pn-prid from the registered contact → POSTs to the endpoint
               → the device's UnifiedPush distributor delivers a push
-              → UnifiedPushReceiver.onMessage wakes the Core + refreshRegisters()
-              → the server re-sends/holds the INVITE → the now-registered app rings
+              → UnifiedPushReceiver.onMessage: wake lock + enterForeground + refreshRegisters
+              → the server sends the INVITE → the awake, registered app rings
 ```
 
 The app **advertises its endpoint in the REGISTER's Contact URI** (RFC 8599 `pn-prid`), so
@@ -33,11 +33,28 @@ OpenSIPS) do RFC 8599 natively; for plain **Asterisk** the companion is a tiny A
 [**asterisk-unifiedpush-wake**](https://codeberg.org/exit0/asterisk-unifiedpush-wake). This
 PR is the client half.
 
+### Ringing reliably — warm *and* cold (the hard part)
+
+Proven end-to-end on real /e/OS hardware. Two device states must both work:
+
+* **Cold** (process killed): the push cold-starts the app, it registers, the INVITE rings.
+  Works out of the box.
+* **Warm** (process alive but **dozing**): the push fires `onMessage`, but the device
+  **dozes again in the few seconds before the INVITE arrives** and drops it. A foreground
+  service can't be started from the background (Android 12+ throws
+  `BackgroundServiceStartNotAllowedException`), so `onMessage` instead grabs a **partial
+  wake lock** (~30s) — which *is* allowed from a background broadcast — to hold the device
+  awake across the gap. Without this, warm calls silently fail while cold ones work.
+
+Server-side caveat that bites a dozing device: it re-registers from a **new SIP port** each
+wake, so the AOR must use `max_contacts=1` + `remove_existing=yes` or Asterisk dials a
+**stale contact** and the INVITE goes nowhere. (Documented in the plugin repo.)
+
 ## Changes
 
 | File | Change |
 |---|---|
-| `app/src/main/java/org/linphone/core/UnifiedPushReceiver.kt` | **New.** `MessagingReceiver` (connector 3.3.3). `onNewEndpoint` stores the endpoint URL; `onMessage` starts the keep-alive service + `postOnCoreThread { core.refreshRegisters() }`; companion `register()`/`unregister()` helpers. |
+| `app/src/main/java/org/linphone/core/UnifiedPushReceiver.kt` | **New.** `MessagingReceiver` (connector 3.3.3). `onNewEndpoint` stores the endpoint URL **and advertises it in each account's Contact URI** (`pn-prid`); `onMessage` grabs a **partial wake lock** then `enterForeground()` + `refreshRegisters()` so a dozing device stays awake for the INVITE; companion `register()`/`unregister()`/distributor helpers. |
 | `app/src/main/java/org/linphone/core/CorePreferences.kt` | `useUnifiedPush` (Bool, default **false**) gates registration; `unifiedPushEndpoint` (String) stores the URL to hand to the server. Config keys: `[app] use_unified_push`, `[app] unified_push_endpoint`. |
 | `app/src/main/java/org/linphone/LinphoneApplication.kt` | After `coreContext.start()`, if `useUnifiedPush` → `UnifiedPushReceiver.register(context)`. |
 | `app/src/main/AndroidManifest.xml` | Exported receiver with the UnifiedPush broadcast actions (`MESSAGE`, `NEW_ENDPOINT`, `REGISTRATION_FAILED`, `UNREGISTERED`, `TEMP_UNAVAILABLE`). |
