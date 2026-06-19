@@ -74,8 +74,11 @@ source ~/Android/env.sh            # JDK 21 + Android SDK under ~
   would need that path verified (we exclude JVM Tink and rely on `tink-android`).
 - **No Flexisip/RFC 8599 parity.** Intentionally out of scope — this is a generic wake, not
   a replacement for the FCM/`pushNotificationConfig` path.
-- **Distributor selection** uses `tryUseCurrentOrDefaultDistributor` (auto default/saved).
-  A picker (`connector-ui`) for multiple distributors is a follow-up.
+- **Distributor selection** is automatic and tuned for non-technical users: it prefers the
+  OS's own distributor (a system app — e.g. /e/OS's built-in, always running) then ntfy then
+  anything installed. If **none** is installed, enabling the toggle pops a plain-language
+  dialog offering to install ntfy (no "UnifiedPush" jargon shown to the user). An explicit
+  manual picker (`connector-ui`) is still a possible follow-up.
 - **Upstream:** Belledonne requires a CLA, and may prefer this wired into their push-settings
   UI and gated per-account rather than a global flag.
 

@@ -20,6 +20,8 @@
 package org.linphone.core
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import org.linphone.LinphoneApplication.Companion.coreContext
 import org.linphone.LinphoneApplication.Companion.corePreferences
 import org.linphone.core.tools.Log
@@ -45,25 +47,57 @@ class UnifiedPushReceiver : MessagingReceiver() {
     companion object {
         private const val TAG = "[UnifiedPush Receiver]"
 
+        // The recommended fallback push helper app when the OS doesn't provide its own.
+        const val NTFY_PACKAGE = "io.heckel.ntfy"
+
+        /** True if any UnifiedPush distributor (push helper app) is installed. */
+        fun hasDistributor(context: Context): Boolean {
+            return UnifiedPush.getDistributors(context).isNotEmpty()
+        }
+
         /**
-         * Ask the currently saved (or otherwise the default) distributor to register us.
-         * The endpoint is delivered asynchronously to [onNewEndpoint]. Idempotent, so it is
-         * safe to call on every app start.
+         * Register for push with the best available distributor. The endpoint is delivered
+         * asynchronously to [onNewEndpoint]. Returns false (without doing anything) if no
+         * distributor is installed, so the caller can guide the user to install one.
+         * Safe to call on every app start.
          */
-        fun register(context: Context) {
-            UnifiedPush.tryUseCurrentOrDefaultDistributor(context) { success ->
-                if (success) {
-                    Log.i("$TAG A distributor is available, registering for push")
-                    UnifiedPush.register(context)
-                } else {
-                    Log.w("$TAG No UnifiedPush distributor available, can't register for push")
-                }
+        fun register(context: Context): Boolean {
+            val distributor = pickDistributor(context)
+            if (distributor == null) {
+                Log.w("$TAG No push helper app (distributor) installed, can't register")
+                return false
             }
+            Log.i("$TAG Registering for push via distributor [$distributor]")
+            UnifiedPush.saveDistributor(context, distributor)
+            UnifiedPush.register(context)
+            return true
         }
 
         fun unregister(context: Context) {
             Log.i("$TAG Unregistering from UnifiedPush")
             UnifiedPush.unregister(context)
+        }
+
+        /**
+         * Pick a distributor with the least surprising preference for a non-technical user:
+         * the OS's own (a system app — e.g. /e/OS's built-in, which is always running) first,
+         * then ntfy, then whatever else is installed.
+         */
+        private fun pickDistributor(context: Context): String? {
+            val distributors = UnifiedPush.getDistributors(context)
+            if (distributors.isEmpty()) return null
+            val pm = context.packageManager
+            return distributors.firstOrNull { isSystemApp(pm, it) }
+                ?: distributors.firstOrNull { it == NTFY_PACKAGE }
+                ?: distributors.first()
+        }
+
+        private fun isSystemApp(pm: PackageManager, packageName: String): Boolean {
+            return try {
+                (pm.getApplicationInfo(packageName, 0).flags and ApplicationInfo.FLAG_SYSTEM) != 0
+            } catch (e: PackageManager.NameNotFoundException) {
+                false
+            }
         }
     }
 

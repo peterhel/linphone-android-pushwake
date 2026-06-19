@@ -19,12 +19,17 @@
  */
 package org.linphone.ui.main.settings.fragment
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.UiThread
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModelProvider
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import org.linphone.R
+import org.linphone.core.UnifiedPushReceiver
 import org.linphone.databinding.SettingsDeveloperFragmentBinding
 import org.linphone.ui.main.fragment.GenericMainFragment
 import org.linphone.ui.main.settings.viewmodel.SettingsViewModel
@@ -54,11 +59,40 @@ class SettingsDeveloperFragment : GenericMainFragment() {
         binding.viewModel = viewModel
         observeToastEvents(viewModel)
 
+        viewModel.installPushHelperEvent.observe(viewLifecycleOwner) {
+            it.consume {
+                showInstallPushHelperDialog()
+            }
+        }
+
         binding.setBackClickListener {
             goBack()
         }
 
         startPostponedEnterTransition()
+    }
+
+    private fun showInstallPushHelperDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_developer_unified_push_install_helper_title)
+            .setMessage(R.string.settings_developer_unified_push_install_helper_message)
+            .setPositiveButton(R.string.settings_developer_unified_push_install_helper_action) { _, _ ->
+                openNtfyInstallPage()
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun openNtfyInstallPage() {
+        val packageName = UnifiedPushReceiver.NTFY_PACKAGE
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, "market://details?id=$packageName".toUri()))
+        } catch (e: Exception) {
+            // No app store handler (e.g. de-Googled device) -> open the F-Droid page in a browser.
+            startActivity(
+                Intent(Intent.ACTION_VIEW, "https://f-droid.org/packages/$packageName/".toUri())
+            )
+        }
     }
 
     override fun onPause() {

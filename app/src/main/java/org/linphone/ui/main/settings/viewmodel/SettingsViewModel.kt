@@ -74,6 +74,12 @@ class SettingsViewModel
         MutableLiveData()
     }
 
+    // Raised when the user enables background push but no push helper app (distributor) is
+    // installed, so the UI can offer to install one (ntfy).
+    val installPushHelperEvent: MutableLiveData<Event<Boolean>> by lazy {
+        MutableLiveData()
+    }
+
     // Security settings
     val isVfsEnabled = MutableLiveData<Boolean>()
 
@@ -1252,14 +1258,21 @@ class SettingsViewModel
     @UiThread
     fun toggleUnifiedPush() {
         val newValue = useUnifiedPush.value == false
+        if (newValue) {
+            // Prefer the OS's own push, else ntfy. If nothing is installed, don't enable —
+            // ask the user to install a helper app instead.
+            val registered = UnifiedPushReceiver.register(coreContext.context)
+            if (!registered) {
+                installPushHelperEvent.postValue(Event(true))
+                useUnifiedPush.postValue(false)
+                return
+            }
+        } else {
+            UnifiedPushReceiver.unregister(coreContext.context)
+        }
         coreContext.postOnCoreThread {
             corePreferences.useUnifiedPush = newValue
             useUnifiedPush.postValue(newValue)
-        }
-        if (newValue) {
-            UnifiedPushReceiver.register(coreContext.context)
-        } else {
-            UnifiedPushReceiver.unregister(coreContext.context)
         }
     }
 
