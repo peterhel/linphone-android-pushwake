@@ -391,6 +391,7 @@
     <string name="settings_developer_unified_push_install_helper_title">A push helper app is needed</string>
     <string name="settings_developer_unified_push_install_helper_message">To receive calls when Linphone is closed — without keeping it running all the time (which drains the battery) — your phone needs a small, free push helper app. We recommend ntfy. Install it, then turn this on again.</string>
     <string name="settings_developer_unified_push_install_helper_action">Install ntfy</string>
+    <string name="settings_developer_unified_push_pick_title">Choose which app delivers your calls</string>
     <string name="settings_developer_no_auth_info_removed_toast">No orphan authentication info found</string>
     <plurals name="settings_developer_cleared_auth_info_toast">
         <item quantity="one">%s orphan authentication info removed</item>

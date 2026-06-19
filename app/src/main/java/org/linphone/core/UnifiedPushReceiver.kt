@@ -50,46 +50,54 @@ class UnifiedPushReceiver : MessagingReceiver() {
         // The recommended fallback push helper app when the OS doesn't provide its own.
         const val NTFY_PACKAGE = "io.heckel.ntfy"
 
-        /** True if any UnifiedPush distributor (push helper app) is installed. */
-        fun hasDistributor(context: Context): Boolean {
-            return UnifiedPush.getDistributors(context).isNotEmpty()
+        /** All installed UnifiedPush distributors (push helper apps), by package name. */
+        fun availableDistributors(context: Context): List<String> {
+            return UnifiedPush.getDistributors(context)
         }
 
+        fun hasDistributor(context: Context): Boolean = availableDistributors(context).isNotEmpty()
+
         /**
-         * Register for push with the best available distributor. The endpoint is delivered
-         * asynchronously to [onNewEndpoint]. Returns false (without doing anything) if no
-         * distributor is installed, so the caller can guide the user to install one.
-         * Safe to call on every app start.
+         * The OS's own distributor if there is one — a **system app** (e.g. /e/OS's built-in
+         * push, or an embedded FCM-based one). When present we use it silently; otherwise the
+         * user is asked to pick which installed app should handle push.
          */
-        fun register(context: Context): Boolean {
-            val distributor = pickDistributor(context)
-            if (distributor == null) {
-                Log.w("$TAG No push helper app (distributor) installed, can't register")
-                return false
-            }
+        fun systemDistributor(context: Context): String? {
+            val pm = context.packageManager
+            return availableDistributors(context).firstOrNull { isSystemApp(pm, it) }
+        }
+
+        /** Register for push with a specific distributor; endpoint arrives in [onNewEndpoint]. */
+        fun registerWith(context: Context, distributor: String) {
             Log.i("$TAG Registering for push via distributor [$distributor]")
             UnifiedPush.saveDistributor(context, distributor)
             UnifiedPush.register(context)
+        }
+
+        /**
+         * Auto-register without any UI (used on app start): keep the user's previously-picked
+         * distributor if it is still installed, else the OS's own, else ntfy, else whatever is
+         * available. Returns false if nothing is installed. The interactive toggle instead uses
+         * [systemDistributor] + a picker so the choice is explicit when it isn't obvious.
+         */
+        fun register(context: Context): Boolean {
+            val distributors = availableDistributors(context)
+            if (distributors.isEmpty()) {
+                Log.w("$TAG No push helper app (distributor) installed, can't register")
+                return false
+            }
+            val saved = UnifiedPush.getSavedDistributor(context)?.takeIf { it in distributors }
+            val chosen = saved
+                ?: systemDistributor(context)
+                ?: distributors.firstOrNull { it == NTFY_PACKAGE }
+                ?: distributors.first()
+            registerWith(context, chosen)
             return true
         }
 
         fun unregister(context: Context) {
             Log.i("$TAG Unregistering from UnifiedPush")
             UnifiedPush.unregister(context)
-        }
-
-        /**
-         * Pick a distributor with the least surprising preference for a non-technical user:
-         * the OS's own (a system app — e.g. /e/OS's built-in, which is always running) first,
-         * then ntfy, then whatever else is installed.
-         */
-        private fun pickDistributor(context: Context): String? {
-            val distributors = UnifiedPush.getDistributors(context)
-            if (distributors.isEmpty()) return null
-            val pm = context.packageManager
-            return distributors.firstOrNull { isSystemApp(pm, it) }
-                ?: distributors.firstOrNull { it == NTFY_PACKAGE }
-                ?: distributors.first()
         }
 
         private fun isSystemApp(pm: PackageManager, packageName: String): Boolean {

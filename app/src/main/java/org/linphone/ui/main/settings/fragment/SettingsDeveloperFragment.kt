@@ -65,6 +65,12 @@ class SettingsDeveloperFragment : GenericMainFragment() {
             }
         }
 
+        viewModel.pickPushDistributorEvent.observe(viewLifecycleOwner) {
+            it.consume { distributors ->
+                showPushDistributorPicker(distributors)
+            }
+        }
+
         binding.setBackClickListener {
             goBack()
         }
@@ -78,6 +84,24 @@ class SettingsDeveloperFragment : GenericMainFragment() {
             .setMessage(R.string.settings_developer_unified_push_install_helper_message)
             .setPositiveButton(R.string.settings_developer_unified_push_install_helper_action) { _, _ ->
                 openNtfyInstallPage()
+            }
+            .setNegativeButton(R.string.dialog_cancel, null)
+            .show()
+    }
+
+    private fun showPushDistributorPicker(distributors: List<String>) {
+        val pm = requireContext().packageManager
+        val labels = distributors.map { packageName ->
+            try {
+                pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+            } catch (e: Exception) {
+                packageName
+            }
+        }.toTypedArray()
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_developer_unified_push_pick_title)
+            .setItems(labels) { _, which ->
+                viewModel.selectPushDistributor(distributors[which])
             }
             .setNegativeButton(R.string.dialog_cancel, null)
             .show()

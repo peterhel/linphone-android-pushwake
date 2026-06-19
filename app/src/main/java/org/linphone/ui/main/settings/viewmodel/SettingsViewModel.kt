@@ -80,6 +80,12 @@ class SettingsViewModel
         MutableLiveData()
     }
 
+    // Raised when several push helper apps are available but none is the OS's own, so the UI
+    // can let the user pick one. Carries the candidate distributor package names.
+    val pickPushDistributorEvent: MutableLiveData<Event<List<String>>> by lazy {
+        MutableLiveData()
+    }
+
     // Security settings
     val isVfsEnabled = MutableLiveData<Boolean>()
 
@@ -1257,22 +1263,44 @@ class SettingsViewModel
 
     @UiThread
     fun toggleUnifiedPush() {
-        val newValue = useUnifiedPush.value == false
-        if (newValue) {
-            // Prefer the OS's own push, else ntfy. If nothing is installed, don't enable —
-            // ask the user to install a helper app instead.
-            val registered = UnifiedPushReceiver.register(coreContext.context)
-            if (!registered) {
+        val context = coreContext.context
+        if (useUnifiedPush.value == true) {
+            UnifiedPushReceiver.unregister(context)
+            setUnifiedPushEnabled(false)
+            return
+        }
+        val distributors = UnifiedPushReceiver.availableDistributors(context)
+        val systemDistributor = UnifiedPushReceiver.systemDistributor(context)
+        when {
+            // Nothing installed -> offer to install ntfy, stay off.
+            distributors.isEmpty() -> {
                 installPushHelperEvent.postValue(Event(true))
                 useUnifiedPush.postValue(false)
-                return
             }
-        } else {
-            UnifiedPushReceiver.unregister(coreContext.context)
+            // The OS provides its own push (e.g. /e/OS / FCM) -> use it silently.
+            systemDistributor != null -> {
+                UnifiedPushReceiver.registerWith(context, systemDistributor)
+                setUnifiedPushEnabled(true)
+            }
+            // No OS push -> let the user pick which app handles it; stay off until they choose.
+            else -> {
+                useUnifiedPush.postValue(false)
+                pickPushDistributorEvent.postValue(Event(distributors))
+            }
         }
+    }
+
+    @UiThread
+    fun selectPushDistributor(distributor: String) {
+        UnifiedPushReceiver.registerWith(coreContext.context, distributor)
+        setUnifiedPushEnabled(true)
+    }
+
+    @UiThread
+    private fun setUnifiedPushEnabled(enabled: Boolean) {
         coreContext.postOnCoreThread {
-            corePreferences.useUnifiedPush = newValue
-            useUnifiedPush.postValue(newValue)
+            corePreferences.useUnifiedPush = enabled
+            useUnifiedPush.postValue(enabled)
         }
     }
 
