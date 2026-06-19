@@ -118,21 +118,19 @@ class UnifiedPushReceiver : MessagingReceiver() {
     }
 
     override fun onMessage(context: Context, message: PushMessage, instance: String) {
-        Log.i(
-            "$TAG Push message received for instance [$instance], waking Core to refresh REGISTER(s)"
-        )
-        // Keep the process alive long enough to (re-)register and receive the pending call.
-        // (Safe no-op if it can't be started; it try/catches internally.)
+        Log.i("$TAG Push message received for instance [$instance], handling as a call wake-up")
         coreContext.startKeepAliveService()
         if (coreContext.isReady()) {
             coreContext.postOnCoreThread { core ->
-                Log.i("$TAG Refreshing registrations after push wake-up")
-                core.refreshRegisters()
+                // Tell the Core a push arrived: it re-registers AND stays awake (via the push
+                // foreground service) to receive the incoming INVITE. Just refreshing
+                // registration isn't enough — the device dozes again before the call lands.
+                Log.i("$TAG Processing push notification to stay awake for the call")
+                core.processPushNotification("")
             }
         } else {
-            // Cold start: the Application is bringing the Core up, and core.start() registers
-            // all accounts on its own, so the pending call will be reachable once it's started.
-            Log.w("$TAG Core not ready yet; it is being started and will register on start")
+            // Cold start: the Application is bringing the Core up; it will handle the call on start.
+            Log.w("$TAG Core not ready yet; it is being started and will handle the call on start")
         }
     }
 
