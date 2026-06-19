@@ -19,14 +19,19 @@ doesn't have to stay alive.
 ## How it works
 
 ```
-incoming call → SIP server (or a small proxy/dialplan hook) POSTs to the endpoint URL
+REGISTER      → Contact: <sip:..;pn-provider=unifiedpush;pn-prid=<url-encoded endpoint>>   (the app advertises its topic, RFC 8599)
+incoming call → server reads pn-prid from the registered contact → POSTs to the endpoint
               → the device's UnifiedPush distributor delivers a push
               → UnifiedPushReceiver.onMessage wakes the Core + refreshRegisters()
               → the server re-sends/holds the INVITE → the now-registered app rings
 ```
 
-Concretely, with Asterisk the dialplan already does the server half (POST to a URL, wait,
-re-`Dial`); this PR is the missing client half.
+The app **advertises its endpoint in the REGISTER's Contact URI** (RFC 8599 `pn-prid`), so
+the server learns each device's push topic automatically — nothing is hardcoded server-side.
+The server then just has to read `pn-prid` and POST to it. Push-capable proxies (Kamailio /
+OpenSIPS) do RFC 8599 natively; for plain **Asterisk** the companion is a tiny AGI plugin:
+[**asterisk-unifiedpush-wake**](https://codeberg.org/exit0/asterisk-unifiedpush-wake). This
+PR is the client half.
 
 ## Changes
 
@@ -66,9 +71,11 @@ source ~/Android/env.sh            # JDK 21 + Android SDK under ~
   `pjsip show history`). **Still to confirm:** the fully-cold case (process killed → woken
   by the broadcast) and the keep-the-process-alive-across-the-INVITE window, which are
   Doze/OEM-specific.
-- **Endpoint not surfaced in UI.** It's stored (`unifiedPushEndpoint`) + logged, but there's
-  no screen showing it / copy button yet — the user can't easily hand it to the server.
-  (A throwaway test branch adds a notification for this; the real fix is a settings field.)
+- **Endpoint is advertised automatically** in the REGISTER Contact (`pn-prid`, RFC 8599) via
+  `AccountParams.setContactUriParameters`, so the user never has to copy it anywhere — the
+  server reads it per-device. (It's also stored in `unifiedPushEndpoint` + logged for debug.)
+  Caveat: this currently sets the contact params on **all** accounts and replaces any existing
+  `contactUriParameters`; a refined version would scope it to UnifiedPush accounts and merge.
 - **No WebPush encryption.** We assume plaintext pushes (Asterisk POSTs a wake signal). The
   connector's optional Web Push encryption (Tink) isn't exercised; encrypted-push setups
   would need that path verified (we exclude JVM Tink and rely on `tink-android`).

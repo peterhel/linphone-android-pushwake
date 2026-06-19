@@ -22,6 +22,7 @@ package org.linphone.core
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import org.linphone.LinphoneApplication.Companion.coreContext
 import org.linphone.LinphoneApplication.Companion.corePreferences
 import org.linphone.core.tools.Log
@@ -111,8 +112,9 @@ class UnifiedPushReceiver : MessagingReceiver() {
 
     override fun onNewEndpoint(context: Context, endpoint: PushEndpoint, instance: String) {
         Log.i("$TAG Received new endpoint for instance [$instance]: [${endpoint.url}]")
-        // Store it so it can be shown to the user / handed to the SIP server configuration.
+        // Store it (for display) and advertise it in the SIP REGISTER so the server learns it.
         corePreferences.unifiedPushEndpoint = endpoint.url
+        advertiseEndpointInRegister(endpoint.url)
     }
 
     override fun onMessage(context: Context, message: PushMessage, instance: String) {
@@ -141,5 +143,30 @@ class UnifiedPushReceiver : MessagingReceiver() {
     override fun onUnregistered(context: Context, instance: String) {
         Log.w("$TAG UnifiedPush unregistered for instance [$instance]")
         corePreferences.unifiedPushEndpoint = ""
+        advertiseEndpointInRegister(null)
+    }
+
+    /**
+     * Advertise (or, with a null url, clear) the UnifiedPush endpoint in every account's
+     * REGISTER, as the RFC 8599 Contact-URI parameters
+     * `pn-provider=unifiedpush;pn-prid=<url-encoded endpoint>`, then refresh registrations so
+     * the server learns each device's push topic automatically — no manual server config.
+     */
+    private fun advertiseEndpointInRegister(url: String?) {
+        if (!coreContext.isReady()) return
+        coreContext.postOnCoreThread { core ->
+            val params = if (url.isNullOrEmpty()) {
+                ""
+            } else {
+                "pn-provider=unifiedpush;pn-prid=${Uri.encode(url)}"
+            }
+            for (account in core.accountList) {
+                val accountParams = account.params.clone()
+                accountParams.contactUriParameters = params
+                account.params = accountParams
+            }
+            Log.i("$TAG Updated Contact URI push params on ${core.accountList.size} account(s)")
+            core.refreshRegisters()
+        }
     }
 }
