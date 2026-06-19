@@ -23,6 +23,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.PowerManager
 import org.linphone.LinphoneApplication.Companion.coreContext
 import org.linphone.LinphoneApplication.Companion.corePreferences
 import org.linphone.core.tools.Log
@@ -119,14 +120,29 @@ class UnifiedPushReceiver : MessagingReceiver() {
 
     override fun onMessage(context: Context, message: PushMessage, instance: String) {
         Log.i("$TAG Push message received for instance [$instance], handling as a call wake-up")
+        // Hold the CPU awake for ~30s so the device doesn't doze again before the incoming
+        // INVITE arrives (a few seconds after this push). A partial wake lock CAN be taken
+        // from a background broadcast — unlike a foreground service, which Android blocks here
+        // (BackgroundServiceStartNotAllowedException) and is why "warm but dozing" missed calls.
+        try {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "linphone:unifiedpush-call-wake")
+                .apply { setReferenceCounted(false); acquire(30_000L) }
+        } catch (e: Exception) {
+            Log.w("$TAG Could not acquire wake lock for incoming call: $e")
+        }
         coreContext.startKeepAliveService()
         if (coreContext.isReady()) {
             coreContext.postOnCoreThread { core ->
-                // Tell the Core a push arrived: it re-registers AND stays awake (via the push
-                // foreground service) to receive the incoming INVITE. Just refreshing
-                // registration isn't enough — the device dozes again before the call lands.
-                Log.i("$TAG Processing push notification to stay awake for the call")
-                core.processPushNotification("")
+                // Warm path: the Core is already running but the device is dozing, so its UDP
+                // registration binding is stale and the server's INVITE can't reach it. Mark
+                // the Core foreground (keeps it active, out of battery-saving background mode)
+                // and refresh the registration so the binding is live when the INVITE arrives.
+                // (processPushNotification(callId) is for Flexisip pushes that carry a call-id;
+                // with our generic wake there's no call-id, so it's a no-op — don't use it.)
+                Log.i("$TAG Push wake: entering foreground + refreshing registration for the call")
+                core.enterForeground()
+                core.refreshRegisters()
             }
         } else {
             // Cold start: the Application is bringing the Core up; it will handle the call on start.
