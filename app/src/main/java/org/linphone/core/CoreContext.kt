@@ -1258,22 +1258,18 @@ class CoreContext
 
     @WorkerThread
     private fun disablePushNotificationsFromThirdPartySipAccounts() {
-        // Self-hosted-push fork: do NOT disable push for "third-party" (non-Flexisip) domains —
-        // our Asterisk + the asterisk-unifiedpush-wake AGI delivers the push. Instead, where a
-        // native push provider exists (e.g. an FCM build), ENABLE push so liblinphone advertises
-        // the token (pn-provider=firebase;pn-prid=...) in the REGISTER Contact for the server to
-        // read. (UnifiedPush builds have no native provider here and advertise via
-        // UnifiedPushReceiver instead, so this is a no-op for them.)
-        if (!core.isPushNotificationAvailable) {
-            Log.i("$TAG No native push provider available; leaving accounts' push settings as-is")
-            return
-        }
+        // Self-hosted-push fork: keep liblinphone's native push management OFF for our
+        // (non-Flexisip) Asterisk accounts by disabling pushNotificationAllowed. Otherwise
+        // liblinphone owns the Contact push params and overwrites the FCM token we advertise
+        // manually in UnifiedPushReceiver.advertiseFcmToken (which is how the FP5 UnifiedPush
+        // path works too). The server-side push is delivered by the asterisk-unifiedpush-wake AGI.
         for (account in core.accountList) {
             val params = account.params
-            if (!params.pushNotificationAllowed) {
+            val pushAvailableForDomain = params.identityAddress?.domain in corePreferences.pushNotificationCompatibleDomains
+            if (!pushAvailableForDomain && params.pushNotificationAllowed) {
                 val clone = params.clone()
-                clone.pushNotificationAllowed = true
-                Log.i("$TAG Enabling push for account [${params.identityAddress?.asStringUriOnly()}] (self-hosted push fork)")
+                clone.pushNotificationAllowed = false
+                Log.w("$TAG Disabling liblinphone-managed push for account [${params.identityAddress?.asStringUriOnly()}]; token is advertised manually instead")
                 account.params = clone
             }
         }
