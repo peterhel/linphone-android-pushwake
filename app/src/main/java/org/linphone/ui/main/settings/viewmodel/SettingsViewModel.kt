@@ -887,6 +887,13 @@ class SettingsViewModel
             corePreferences.keepServiceAlive = newValue
             keepAliveThirdPartyAccountsService.postValue(newValue)
             if (newValue) {
+                // Mutually exclusive with on-demand push: keeping the app alive 24/7 makes
+                // UnifiedPush redundant (and wastes battery), so turn push off when this goes on.
+                if (corePreferences.useUnifiedPush) {
+                    UnifiedPushReceiver.unregister(coreContext.context)
+                    corePreferences.useUnifiedPush = false
+                    useUnifiedPush.postValue(false)
+                }
                 coreContext.startKeepAliveService()
             } else {
                 coreContext.stopKeepAliveService()
@@ -1301,6 +1308,14 @@ class SettingsViewModel
         coreContext.postOnCoreThread {
             corePreferences.useUnifiedPush = enabled
             useUnifiedPush.postValue(enabled)
+            if (enabled && corePreferences.keepServiceAlive) {
+                // Mutually exclusive with the always-on keep-alive service (see the toggle above):
+                // push handles background calls on demand, so drop the battery-hungry service.
+                corePreferences.keepServiceAlive = false
+                keepAliveThirdPartyAccountsService.postValue(false)
+                coreContext.stopKeepAliveService()
+                keepAliveServiceSettingChangedEvent.postValue(Event(true))
+            }
         }
     }
 
