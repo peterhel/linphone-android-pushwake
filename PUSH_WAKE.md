@@ -91,7 +91,7 @@ the fresh REGISTER evicts the stale Contact (otherwise the Dial forks to dead po
 | `core/CorePreferences.kt` | `useUnifiedPush` (default false), `unifiedPushEndpoint`. |
 | `LinphoneApplication.kt` | After `coreContext.start()`: UnifiedPush register **or** (FCM build) `advertiseFcmToken()`. |
 | `AndroidManifest.xml` | UnifiedPush broadcast receiver. |
-| `settings_developer_fragment.xml`, `strings.xml`, `SettingsViewModel.kt` | Friendly "Receive calls in the background using push (saves battery)" toggle. |
+| `settings_advanced_fragment.xml`, `strings.xml`, `SettingsViewModel.kt` | Friendly "Receive calls in the background using push (saves battery)" toggle in **Advanced** settings, next to and **mutually exclusive** with the keep-alive service. Off by default — no-push accounts fall back to the keep-alive service automatically. |
 | `gradle/libs.versions.toml`, `app/build.gradle.kts` | `org.unifiedpush.android:connector:3.3.3` + Tink/protobuf dedup. |
 
 **FCM path** (Google Android, e.g. Samsung that kills UnifiedPush sockets):
@@ -120,9 +120,13 @@ Release builds turn liblinphone logging off, so diagnose **server-side**
 
 ## Enable
 
-1. **UnifiedPush:** install a distributor (ntfy, or /e/OS's built-in) → Settings → Developer →
-   *"Receive calls in the background using push"* ON. **FCM:** just install an FCM build; the
-   token is advertised automatically.
+1. **De-Googled build:** works out of the box — with no push configured, a third-party account
+   falls back to an always-on **keep-alive background service** (stays registered; costs battery).
+   For **battery-friendly on-demand wake**, install a UnifiedPush distributor — the
+   **[ntfy](https://f-droid.org/packages/io.heckel.ntfy/)** app (F-Droid or Play) or your OS's
+   built-in one — then turn on **Settings → Advanced → "Receive calls in the background using
+   push"**. Push and the keep-alive service are **mutually exclusive** (enabling one disables the
+   other). **FCM build:** nothing to enable — the token is advertised automatically.
 2. Set up the [server AGI](https://codeberg.org/exit0/asterisk-unifiedpush-wake): wake-first
    dialplan + `max_contacts=1`/`remove_existing` on the AOR.
 3. Background/lock the device, place a call → it wakes and rings with a real call screen.
