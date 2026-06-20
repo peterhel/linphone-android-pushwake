@@ -1,4 +1,10 @@
 
+> 🔔 **Fork — Google-free / self-hosted push-wake.** Get woken for incoming calls against a plain
+> **Asterisk/Kamailio** (no Flexisip), via **UnifiedPush** (de-Googled) *or* **FCM** — instead of a
+> battery-draining always-on service. Proven warm/cold/dozing on /e/OS (UnifiedPush) and Samsung
+> (FCM). **→ Read [`PUSH_WAKE.md`](PUSH_WAKE.md).** Server half:
+> [asterisk-unifiedpush-wake](https://codeberg.org/exit0/asterisk-unifiedpush-wake). Upstream README follows.
+
 [![pipeline status](https://gitlab.linphone.org/BC/public/linphone-android/badges/master/pipeline.svg)](https://gitlab.linphone.org/BC/public/linphone-android/commits/master) 
 [![weblate status](https://weblate.linphone.org/widget/linphone/linphone-android-6-0/status-badge.png)](https://weblate.linphone.org/engage/linphone/)
 
