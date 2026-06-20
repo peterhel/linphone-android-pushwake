@@ -1,5 +1,11 @@
 # PR: UnifiedPush support for Google-free incoming-call wake-up
 
+> **See [`PUSH_WAKE.md`](PUSH_WAKE.md) for the current, comprehensive write-up** — it adds the
+> now-proven **FCM** path, the **cold + dozing** wake (all confirmed on real hardware), and the
+> two hard-won insights (the push grants the foreground-service-start exemption that unlocks the
+> call UI; the wake must re-REGISTER a fresh port). This file is the original UnifiedPush-only PR
+> writeup, kept for the upstream-PR framing.
+
 **Branch:** `feat/unifiedpush`
 **Status:** builds (`:app:assembleDebug` → APK), ktlint-clean, and **wake verified on real /e/OS hardware** (Fairphone 5): POST → `onMessage` → re-REGISTER seen on the server. See gaps for what's left to confirm.
 
