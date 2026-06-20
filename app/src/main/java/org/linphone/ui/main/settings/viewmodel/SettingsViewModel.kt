@@ -1308,12 +1308,20 @@ class SettingsViewModel
         coreContext.postOnCoreThread {
             corePreferences.useUnifiedPush = enabled
             useUnifiedPush.postValue(enabled)
-            if (enabled && corePreferences.keepServiceAlive) {
-                // Mutually exclusive with the always-on keep-alive service (see the toggle above):
-                // push handles background calls on demand, so drop the battery-hungry service.
-                corePreferences.keepServiceAlive = false
-                keepAliveThirdPartyAccountsService.postValue(false)
-                coreContext.stopKeepAliveService()
+            // Mutually exclusive with the keep-alive service (the no-push fallback): enabling push
+            // stops the always-on service; disabling it brings the service back so background calls
+            // keep working — but only when the account has no native push (i.e. not the FCM build).
+            if (enabled) {
+                if (corePreferences.keepServiceAlive) {
+                    corePreferences.keepServiceAlive = false
+                    keepAliveThirdPartyAccountsService.postValue(false)
+                    coreContext.stopKeepAliveService()
+                    keepAliveServiceSettingChangedEvent.postValue(Event(true))
+                }
+            } else if (!corePreferences.keepServiceAlive && !coreContext.core.isPushNotificationAvailable) {
+                corePreferences.keepServiceAlive = true
+                keepAliveThirdPartyAccountsService.postValue(true)
+                coreContext.startKeepAliveService()
                 keepAliveServiceSettingChangedEvent.postValue(Event(true))
             }
         }
