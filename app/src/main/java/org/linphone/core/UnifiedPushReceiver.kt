@@ -102,6 +102,42 @@ class UnifiedPushReceiver : MessagingReceiver() {
             UnifiedPush.unregister(context)
         }
 
+        /**
+         * FCM build: fetch the FCM registration token and advertise it as
+         * `pn-provider=firebase;pn-prid=<token>` in the REGISTER Contact, so a plain Asterisk +
+         * the asterisk-unifiedpush-wake AGI can push it. liblinphone doesn't advertise it for a
+         * non-Flexisip server. No-op when Firebase isn't configured (i.e. the UnifiedPush build).
+         */
+        fun advertiseFcmToken(context: Context) {
+            if (com.google.firebase.FirebaseApp.getApps(context).isEmpty()) {
+                Log.i("$TAG No Firebase app configured; skipping FCM token advertise")
+                return
+            }
+            try {
+                com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                    .addOnSuccessListener { token ->
+                        if (token.isNullOrEmpty()) {
+                            Log.w("$TAG FCM token is empty")
+                        } else if (coreContext.isReady()) {
+                            Log.i("$TAG Advertising FCM token in REGISTER Contact")
+                            coreContext.postOnCoreThread { core ->
+                                for (account in core.accountList) {
+                                    val accountParams = account.params.clone()
+                                    accountParams.contactUriParameters = "pn-provider=firebase;pn-prid=$token"
+                                    account.params = accountParams
+                                }
+                                core.refreshRegisters()
+                            }
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("$TAG Failed to fetch FCM token: $e")
+                    }
+            } catch (e: Exception) {
+                Log.w("$TAG Could not advertise FCM token: $e")
+            }
+        }
+
         private fun isSystemApp(pm: PackageManager, packageName: String): Boolean {
             return try {
                 (pm.getApplicationInfo(packageName, 0).flags and ApplicationInfo.FLAG_SYSTEM) != 0

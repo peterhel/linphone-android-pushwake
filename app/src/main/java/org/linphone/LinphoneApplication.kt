@@ -104,6 +104,12 @@ class LinphoneApplication : Application(), SingletonImageLoader.Factory {
         if (corePreferences.useUnifiedPush) {
             Log.i("$TAG UnifiedPush is enabled, registering for push")
             UnifiedPushReceiver.register(context)
+        } else {
+            // FCM build (Firebase configured): advertise the FCM token in the REGISTER Contact so
+            // the server can push it. liblinphone won't advertise it for a plain, non-Flexisip SIP
+            // server, and without the push a backgrounded app can't start its in-call foreground
+            // service (Android denies it) -> incoming call rings with no UI. No-op without Firebase.
+            UnifiedPushReceiver.advertiseFcmToken(context)
         }
 
         ContextCompat.registerReceiver(
