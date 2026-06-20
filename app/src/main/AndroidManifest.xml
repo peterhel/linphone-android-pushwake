@@ -194,7 +194,9 @@
             android:stopWithTask="false"
             android:label="@string/app_name" />
 
-        <service android:name="org.linphone.core.tools.firebase.FirebaseMessaging"
+        <!-- Replaces liblinphone's stock FCM service so our generic (non-Flexisip) wake push
+             triggers a registration refresh; see PushMessagingService. -->
+        <service android:name="org.linphone.core.PushMessagingService"
             android:enabled="true"
             android:exported="false">
             <intent-filter>
