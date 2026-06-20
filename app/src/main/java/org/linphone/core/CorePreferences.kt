@@ -366,9 +366,16 @@ class CorePreferences
 
     // When enabled, the app registers a UnifiedPush endpoint and is woken on push instead of
     // relying on the keep-alive service, for third-party SIP servers without native push.
+    // Default: ON for de-Googled builds (no Firebase) so push works out of the box — that's the
+    // whole point of this build — and OFF when an FCM provider is configured (that build uses FCM,
+    // not UnifiedPush, and turning UnifiedPush on there would skip FCM).
     @get:AnyThread @set:WorkerThread
     var useUnifiedPush: Boolean
-        get() = config.getBool("app", "use_unified_push", false)
+        get() = config.getBool(
+            "app",
+            "use_unified_push",
+            com.google.firebase.FirebaseApp.getApps(context).isEmpty()
+        )
         set(value) {
             config.setBool("app", "use_unified_push", value)
         }
