@@ -98,6 +98,10 @@ class MainViewModel
         MutableLiveData()
     }
 
+    // Auto-prompt for USE_FULL_SCREEN_INTENT at most once per launch (it's required to show
+    // incoming calls on Android 14+), instead of only a top-bar alert the user may not notice.
+    private var fullScreenIntentPermissionRequested = false
+
     val showNewAccountToastEvent: MutableLiveData<Event<Boolean>> by lazy {
         MutableLiveData()
     }
@@ -713,6 +717,13 @@ class MainViewModel
             val label = AppUtils.getString(R.string.full_screen_intent_permission_not_granted)
             coreContext.postOnCoreThread {
                 addAlert(FULL_SCREEN_INTENTS_PERMISSION_NOT_GRANTED, label)
+            }
+            // Required to show incoming calls — prompt the user straight to the setting once
+            // per launch rather than relying on them noticing and tapping the alert banner.
+            if (!fullScreenIntentPermissionRequested) {
+                fullScreenIntentPermissionRequested = true
+                Log.i("$TAG Auto-prompting for the USE_FULL_SCREEN_INTENT permission")
+                askFullScreenIntentPermissionEvent.postValue(Event(true))
             }
         } else {
             removeAlert(FULL_SCREEN_INTENTS_PERMISSION_NOT_GRANTED)
