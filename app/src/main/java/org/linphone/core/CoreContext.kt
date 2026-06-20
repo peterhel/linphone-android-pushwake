@@ -1258,13 +1258,22 @@ class CoreContext
 
     @WorkerThread
     private fun disablePushNotificationsFromThirdPartySipAccounts() {
+        // Self-hosted-push fork: do NOT disable push for "third-party" (non-Flexisip) domains —
+        // our Asterisk + the asterisk-unifiedpush-wake AGI delivers the push. Instead, where a
+        // native push provider exists (e.g. an FCM build), ENABLE push so liblinphone advertises
+        // the token (pn-provider=firebase;pn-prid=...) in the REGISTER Contact for the server to
+        // read. (UnifiedPush builds have no native provider here and advertise via
+        // UnifiedPushReceiver instead, so this is a no-op for them.)
+        if (!core.isPushNotificationAvailable) {
+            Log.i("$TAG No native push provider available; leaving accounts' push settings as-is")
+            return
+        }
         for (account in core.accountList) {
             val params = account.params
-            val pushAvailableForDomain = params.identityAddress?.domain in corePreferences.pushNotificationCompatibleDomains
-            if (!pushAvailableForDomain && params.pushNotificationAllowed) {
+            if (!params.pushNotificationAllowed) {
                 val clone = params.clone()
-                clone.pushNotificationAllowed = false
-                Log.w("$TAG Updating account [${params.identityAddress?.asStringUriOnly()}] params to disable push notifications, they won't work and may cause issues when used with UDP transport protocol")
+                clone.pushNotificationAllowed = true
+                Log.i("$TAG Enabling push for account [${params.identityAddress?.asStringUriOnly()}] (self-hosted push fork)")
                 account.params = clone
             }
         }
