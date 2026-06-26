@@ -484,7 +484,10 @@ class CorePreferences
 
     @get:AnyThread
     val fetchContactsFromDefaultDirectory: Boolean
-        get() = config.getBool("app", "fetch_contacts_from_default_directory", true)
+        // pushwake fork: default false — de-Googled phones (/e/OS, GrapheneOS) keep contacts in
+        // a LOCAL account that is NOT IN_DEFAULT_DIRECTORY, so the default-directory filter hid
+        // every contact. Fetch all contacts instead. (override via [app] in linphonerc if needed)
+        get() = config.getBool("app", "fetch_contacts_from_default_directory", false)
 
     @get:AnyThread
     val showLettersOnDialpad: Boolean

@@ -387,7 +387,7 @@
     <string name="settings_developer_clear_native_friends_in_database_subtitle">They will be imported again the next time the app starts unless you remove the contacts permission</string>
     <string name="settings_developer_cleared_native_friends_in_database_toast">Imported contacts have been deleted</string>
     <string name="settings_developer_clear_orphan_auth_info_title">Clear authentication info no longer associated to any account</string>
-    <string name="settings_developer_unified_push_title">Receive calls in the background using push (saves battery)</string>
+    <string name="settings_developer_unified_push_title">Use UnifiedPush instead of Firebase for background calls. Firebase (FCM) push is on by default — only enable this on de-Googled phones without Google Play.</string>
     <string name="settings_developer_unified_push_install_helper_title">A push helper app is needed</string>
     <string name="settings_developer_unified_push_install_helper_message">To receive calls when Linphone is closed — without keeping it running all the time (which drains the battery) — your phone needs a small, free push helper app. We recommend ntfy. Install it, then turn this on again.</string>
     <string name="settings_developer_unified_push_install_helper_action">Install ntfy</string>

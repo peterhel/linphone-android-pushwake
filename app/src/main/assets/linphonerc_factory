@@ -13,6 +13,10 @@ accept_any_encryption=1
 
 [sip]
 guess_hostname=1
+# pushwake fork: keep the PLAINTEXT password (don't hash to ha1). HTTP Basic auth
+# (CardDAV/Radicale) needs the plaintext; with the default (ha1) the digest is sent as
+# the Basic password and the server rejects it -> CardDAV "synchronization error".
+store_ha1_passwd=0
 register_only_when_network_is_up=1
 auto_net_state_mon=1
 auto_answer_replacing_calls=1
