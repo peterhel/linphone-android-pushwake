@@ -848,13 +848,66 @@ class NotificationsManager
                     }
                 } else {
                     Log.e("$TAG Failed to start incoming call foreground Service!")
+                    // FGS start was denied (backgrounded app whose push-messaging FGS-start
+                    // exemption window had already closed — e.g. the edge Flexisip raced the
+                    // INVITE ahead of the UnifiedPush wake). Fall back to a plain CallStyle
+                    // notification so the call still shows a UI instead of ringing invisibly.
+                    notifyIncomingCallWithoutForegroundService(notificationId, notification)
                 }
             } else {
                 Log.e("$TAG POST_NOTIFICATIONS permission isn't granted, don't start foreground Service!")
             }
         } else {
-            Log.w("$TAG Core Foreground Service hasn't started yet...")
+            // The in-call foreground Service isn't up (Android won't let a backgrounded app
+            // start it). Without a fallback the incoming call rings with NO UI at all (see
+            // PUSH_WAKE.md): liblinphone still plays the ringtone from the background, but
+            // nothing ever posts the incoming-call notification. A CallStyle notification that
+            // carries a fullScreenIntent needs NO foreground service, so post it directly and
+            // the full-screen swipe-to-answer screen still appears.
+            Log.w("$TAG Core Foreground Service hasn't started yet; posting incoming call notification directly via fullScreenIntent")
+            notifyIncomingCallWithoutForegroundService(notificationId, notification)
         }
+    }
+
+    /**
+     * Fallback used when the in-call foreground Service can't be started — the classic
+     * ring-but-no-UI race between an incoming INVITE and the (UnifiedPush) push wake on a
+     * backgrounded, dozing device. The incoming [notification] already carries
+     * setFullScreenIntent(...) and the answer/decline actions, which BOTH satisfies Android's
+     * CallStyle rule ("foreground Service OR fullScreenIntent") and renders the full-screen
+     * incoming-call UI without any foreground service. If a later Core event manages to start
+     * the FGS, showCallNotification()/showIncomingCallNotificationIfNeeded() re-drives the
+     * normal path and upgrades this to a proper foreground-service-backed notification.
+     */
+    @WorkerThread
+    private fun notifyIncomingCallWithoutForegroundService(notificationId: Int, notification: Notification) {
+        Log.i("$TAG Posting incoming call notification without a foreground Service (fullScreenIntent fallback)")
+        notify(notificationId, notification)
+    }
+
+    /**
+     * Re-surface the incoming-call UI for a call that is currently ringing but whose
+     * notification/foreground-service was never shown — e.g. the INVITE reached the
+     * IncomingReceived state while the app was still backgrounded (FGS-start denied) and only
+     * now, after a UnifiedPush wake brought us to the foreground, can the UI be shown. Safe
+     * no-op when there is no ringing incoming call or a foreground-service notification is
+     * already up.
+     */
+    @WorkerThread
+    fun showIncomingCallNotificationIfNeeded() {
+        val call = coreContext.core.calls.find { LinphoneUtils.isCallIncoming(it.state) }
+        if (call == null) {
+            Log.i("$TAG No incoming call ringing, nothing to (re)surface")
+            return
+        }
+        if (currentInCallServiceNotificationId != -1) {
+            Log.i("$TAG An in-call foreground Service notification is already displayed, nothing to do")
+            return
+        }
+        Log.w(
+            "$TAG Incoming call [${call.remoteAddress.asStringUriOnly()}] is ringing without a foreground-service notification; (re)posting it now"
+        )
+        showCallNotification(call, true)
     }
 
     @WorkerThread

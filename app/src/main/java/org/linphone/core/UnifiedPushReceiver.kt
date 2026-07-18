@@ -179,6 +179,18 @@ class UnifiedPushReceiver : MessagingReceiver() {
                 Log.i("$TAG Push wake: entering foreground + refreshing registration for the call")
                 core.enterForeground()
                 core.refreshRegisters()
+
+                // Race guard: on the edge (Flexisip fork-late) path the held INVITE can reach
+                // us and hit IncomingReceived BEFORE this wake ran, while the app was still
+                // backgrounded — so the in-call foreground service start was denied and the
+                // call is ringing with no UI. Now that we've entered the foreground, re-surface
+                // any already-arrived incoming call so it becomes visible/answerable (the
+                // NotificationsManager fullScreenIntent fallback covers the same case at the
+                // notification layer). No-op in the normal wake-then-INVITE order.
+                if (core.callsNb > 0) {
+                    Log.w("$TAG A call already arrived before the wake completed; (re)surfacing its incoming UI")
+                    coreContext.notificationsManager.showIncomingCallNotificationIfNeeded()
+                }
             }
         } else {
             // Cold start: the Application is bringing the Core up; it will handle the call on start.
