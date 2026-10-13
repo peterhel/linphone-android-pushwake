@@ -1278,11 +1278,17 @@ class SettingsViewModel
         }
         val distributors = UnifiedPushReceiver.availableDistributors(context)
         val systemDistributor = UnifiedPushReceiver.systemDistributor(context)
+        val provisionedDistributor = UnifiedPushReceiver.provisionedDistributor(context)
         when {
             // Nothing installed -> offer to install ntfy, stay off.
             distributors.isEmpty() -> {
                 installPushHelperEvent.postValue(Event(true))
                 useUnifiedPush.postValue(false)
+            }
+            // Remote provisioning named a distributor and it is installed -> use it silently.
+            provisionedDistributor != null -> {
+                UnifiedPushReceiver.registerWith(context, provisionedDistributor)
+                setUnifiedPushEnabled(true)
             }
             // The OS provides its own push (e.g. /e/OS / FCM) -> use it silently.
             systemDistributor != null -> {

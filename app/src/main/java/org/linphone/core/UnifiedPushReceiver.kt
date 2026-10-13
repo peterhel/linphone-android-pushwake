@@ -69,6 +69,17 @@ class UnifiedPushReceiver : MessagingReceiver() {
             return availableDistributors(context).firstOrNull { isSystemApp(pm, it) }
         }
 
+        /**
+         * The distributor named by remote provisioning (`[app] unified_push_distributor`), if it
+         * is installed. Null when unset or not installed, so callers fall back to their usual order.
+         */
+        fun provisionedDistributor(context: Context): String? {
+            val wanted = corePreferences.unifiedPushDistributor
+            if (wanted.isEmpty()) return null
+            return wanted.takeIf { it in availableDistributors(context) }
+                ?: null.also { Log.w("$TAG Provisioned distributor [$wanted] is not installed") }
+        }
+
         /** Register for push with a specific distributor; endpoint arrives in [onNewEndpoint]. */
         fun registerWith(context: Context, distributor: String) {
             Log.i("$TAG Registering for push via distributor [$distributor]")
@@ -77,9 +88,9 @@ class UnifiedPushReceiver : MessagingReceiver() {
         }
 
         /**
-         * Auto-register without any UI (used on app start): keep the user's previously-picked
-         * distributor if it is still installed, else the OS's own, else ntfy, else whatever is
-         * available. Returns false if nothing is installed. The interactive toggle instead uses
+         * Auto-register without any UI (used on app start and after remote provisioning): the
+         * provisioned distributor if installed, else the user's previously-picked one if still
+         * installed, else the OS's own, else ntfy, else whatever is available. Returns false if nothing is installed. The interactive toggle instead uses
          * [systemDistributor] + a picker so the choice is explicit when it isn't obvious.
          */
         fun register(context: Context): Boolean {
@@ -89,7 +100,8 @@ class UnifiedPushReceiver : MessagingReceiver() {
                 return false
             }
             val saved = UnifiedPush.getSavedDistributor(context)?.takeIf { it in distributors }
-            val chosen = saved
+            val chosen = provisionedDistributor(context)
+                ?: saved
                 ?: systemDistributor(context)
                 ?: distributors.firstOrNull { it == NTFY_PACKAGE }
                 ?: distributors.first()

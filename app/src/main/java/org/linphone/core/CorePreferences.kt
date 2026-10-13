@@ -386,6 +386,13 @@ class CorePreferences
             config.setString("app", "unified_push_endpoint", value)
         }
 
+    // UnifiedPush distributor (package name, e.g. "io.heckel.ntfy") chosen by remote
+    // provisioning. When installed it wins over the user's saved choice and the OS's own
+    // distributor, so an admin can move a device off e.g. /e/OS's push by re-scanning a QR code.
+    @get:AnyThread
+    val unifiedPushDistributor: String
+        get() = config.getString("app", "unified_push_distributor", "").orEmpty().trim()
+
     @get:AnyThread
     val defaultDomain: String
         get() = config.getString("app", "default_domain", "sip.linphone.org")!!

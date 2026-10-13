@@ -294,6 +294,12 @@ class CoreContext
                     }
                 }
 
+                // A re-scanned QR code may name a different push distributor: apply it now
+                // rather than on the next app start.
+                if (corePreferences.useUnifiedPush) {
+                    UnifiedPushReceiver.register(context)
+                }
+
                 provisioningAppliedEvent.postValue(Event(true))
                 corePreferences.firstLaunch = false
                 showGreenToastEvent.postValue(
